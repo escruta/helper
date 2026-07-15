@@ -15,7 +15,7 @@ Built with Python, FastAPI, DDGS, and MarkItDown.
 1. `uv sync` - Install dependencies
 2. `uv run --env-file .env fastapi run` - Start the development server
 
-The helper service will be available at [localhost:8000](http://localhost:8000). It is consumed by [Core](../core) at this URL (configured via `ESCRUTA_HELPER_URL`).
+The helper service will be available at [localhost:8000](http://localhost:8000). It is consumed by [Core](https://github.com/escruta/core) at this URL (configured via `ESCRUTA_HELPER_URL`).
 
 ## Configuration
 
