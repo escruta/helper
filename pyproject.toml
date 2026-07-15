@@ -1,0 +1,17 @@
+[project]
+name = "escruta-helper"
+version = "0"
+readme = "README.md"
+authors = [{ name = "Francisco Mesa", email = "hola@francids.com" }]
+requires-python = ">=3.12"
+dependencies = [
+  "beautifulsoup4>=4.14.3",
+  "ddgs>=9.14.4",
+  "fastapi[standard]>=0.134.0",
+  "markitdown[audio-transcription,docx,pdf,pptx,xls,xlsx,youtube-transcription]>=0.1.5",
+  "python-multipart>=0.0.22",
+  "readability-lxml>=0.8.4.1",
+]
+
+[dependency-groups]
+dev = ["ty>=0.0.24"]
