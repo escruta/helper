@@ -2,9 +2,11 @@ import os
 import re
 import shutil
 import tempfile
+from urllib.parse import urlparse
 
 import requests
 from ddgs import DDGS
+from ddgs.exceptions import DDGSException
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Security, UploadFile
 from fastapi.security.api_key import APIKeyHeader
 from markitdown import MarkItDown
@@ -31,8 +33,30 @@ def is_youtube_url(url: str) -> bool:
     return bool(re.match(pattern, url, re.IGNORECASE))
 
 
+CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def strip_control_characters(html: str) -> str:
+    """Remove XML-incompatible control characters that break lxml parsing."""
+    return CONTROL_CHARS.sub("", html)
+
+
+HTML_MIME_TYPES = {"text/html", "application/xhtml+xml"}
+
+
+def is_html_content(response: requests.Response) -> bool:
+    """True if the response is an HTML page rather than a standalone document."""
+    content_type = (
+        response.headers.get("Content-Type", "").split(";")[0].strip().lower()
+    )
+    if content_type:
+        return content_type in HTML_MIME_TYPES
+    extension = os.path.splitext(urlparse(response.url).path)[1].lower()
+    return extension in ("", ".html", ".htm")
+
+
 @app.post("/search")
-async def search(query: str = Form(...), max_results: int = Form(10)):
+def search(query: str = Form(...), max_results: int = Form(10)):
     if not query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
@@ -44,7 +68,7 @@ async def search(query: str = Form(...), max_results: int = Form(10)):
     try:
         with DDGS() as ddgs:
             results = list(ddgs.text(query, max_results=max_results))
-    except Exception as e:
+    except DDGSException as e:
         raise HTTPException(status_code=502, detail=f"Search provider error: {e}")
 
     return {
@@ -56,11 +80,12 @@ async def search(query: str = Form(...), max_results: int = Form(10)):
 
 
 @app.post("/extract")
-async def extract_content(file: UploadFile = File(None), url: str = Form(None)):
+def extract_content(file: UploadFile = File(None), url: str = Form(None)):
     if not file and not url:
         raise HTTPException(status_code=400, detail="Provide a file or a URL")
 
     try:
+        response = None
         if file:
             filename = file.filename or ""
             suffix = os.path.splitext(filename)[1]
@@ -74,18 +99,20 @@ async def extract_content(file: UploadFile = File(None), url: str = Form(None)):
             response = requests.get(url, headers=headers, timeout=15)
             response.raise_for_status()
 
-            if is_youtube_url(url):
+            if is_youtube_url(url) or not is_html_content(response):
                 result = md.convert(response)
             else:
-                from readability import Document
                 from bs4 import BeautifulSoup
+                from readability import Document
 
-                soup = BeautifulSoup(response.text, "html.parser")
+                soup = BeautifulSoup(
+                    strip_control_characters(response.text), "html.parser"
+                )
                 for math_el in soup.find_all(class_="mwe-math-element"):
                     img = math_el.find("img")
-                    if img and img.get("alt"):
-                        latex = img.get("alt").strip()
-                        math_el.replace_with(f"$${latex}$$")
+                    alt = img.get("alt") if img else None
+                    if alt:
+                        math_el.replace_with(f"$${str(alt).strip()}$$")
 
                 doc = Document(str(soup))
 
@@ -103,9 +130,22 @@ async def extract_content(file: UploadFile = File(None), url: str = Form(None)):
                     os.unlink(tmp_name)
 
         title = getattr(result, "title", None)
-        if not title and file and file.filename:
-            title = os.path.splitext(file.filename)[0]
+        if not title:
+            if file and file.filename:
+                title = os.path.splitext(file.filename)[0]
+            elif (
+                response is not None
+                and not is_youtube_url(url)
+                and not is_html_content(response)
+            ):
+                filename = os.path.basename(urlparse(url).path)
+                if filename:
+                    title = os.path.splitext(filename)[0]
 
         return {"title": title, "content": result.text_content}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except requests.RequestException as e:
+        raise HTTPException(status_code=502, detail=f"Could not fetch the URL: {e}")
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"File handling error: {e}")
+    except (TypeError, ValueError, UnicodeError) as e:
+        raise HTTPException(status_code=500, detail=f"Could not extract content: {e}")

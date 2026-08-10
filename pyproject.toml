@@ -14,4 +14,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["ty>=0.0.24"]
+dev = ["ruff>=0.16.2", "ty>=0.0.24"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.File"]
