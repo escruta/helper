@@ -7,7 +7,7 @@ RUN ./venv/bin/pip install .
 FROM python:3.12-slim-bookworm
 WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
-COPY main.py ./
+COPY *.py ./
 ENV PATH="/opt/venv/bin:$PATH"
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
