@@ -3,9 +3,9 @@
 Dedicated microservice for web search and content extraction within the Escruta platform. It combines two capabilities in a single service:
 
 - **Search** (`POST /search`): performs web searches via DDGS and returns structured results (title, link, snippet).
-- **Extract** (`POST /extract`): parses files (PDF, DOCX, PPTX, XLSX, audio) and URLs (including YouTube) into clean Markdown using MarkItDown.
+- **Extract** (`POST /extract`): parses files (PDF, DOCX, PPTX, XLSX, TXT, MD, HTML, audio) and URLs (websites, PDFs, YouTube) into clean Markdown using PyMuPDF4LLM, Trafilatura, YouTube Transcript API, and MarkItDown.
 
-Built with Python, FastAPI, DDGS, and MarkItDown.
+Built with Python, FastAPI, Trafilatura, PyMuPDF4LLM, DDGS, and MarkItDown.
 
 > [!IMPORTANT]
 > This service is a required component of the Escruta ecosystem. It must be accessible to the Core service for both search and document processing functionality.
